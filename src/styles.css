@@ -16,7 +16,7 @@ button{font-family:inherit}
   --bg:#f3f6ff;--surface:#ffffff;--ink:#14203d;--muted:#55607e;--line:#dfe5f5;
   --accent:#1f55d1;--accent-ink:#ffffff;--warn:#a34a00;--warn-bg:#ffefd9;--danger:#b0123a;--danger-bg:#ffe3ea;--ok-bg:#dcf6ec;--ok:#0d7a55;
   --t1:#dbe6ff;--t2:#d9f4ff;--t3:#e9e3ff;
-  --f-display:"Bricolage Grotesque",ui-sans-serif,system-ui,sans-serif;
+  --f-display:"Bricolage Grotesque Variable","Bricolage Grotesque",ui-sans-serif,system-ui,sans-serif;
   --f-body:"IBM Plex Sans",ui-sans-serif,system-ui,sans-serif;
   --f-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
 }
@@ -176,3 +176,15 @@ summary{min-height:44px}
   .sheet{max-height:100%}
 }
 header h1{white-space:nowrap}
+
+/* Canceled list, trial note, sign-out confirm */
+.trialnote{margin-top:6px;font-size:.82rem;color:var(--warn);font-weight:500}
+.pill.off{background:var(--line);color:var(--muted)}
+.canceledwrap{display:grid;gap:10px;margin-top:10px}
+.saving{font-size:.85rem;font-weight:600;color:var(--ok)}
+.is-canceled .row{opacity:.75}
+.is-canceled .meta strong{text-decoration:line-through;text-decoration-thickness:1px}
+header{flex-wrap:wrap}
+.signout-confirm{flex-basis:100%;background:var(--danger-bg);border:1px solid color-mix(in srgb,var(--danger) 30%,transparent);border-radius:12px;padding:12px 14px;display:grid;gap:10px}
+.signout-confirm p{margin:0;font-size:.92rem}
+.copyrow a.num{color:var(--accent)}

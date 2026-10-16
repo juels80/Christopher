@@ -7,7 +7,7 @@ function scorePassword(v) {
   return (v.length >= 8) + /\d/.test(v) + /[A-Z]/.test(v) + /[^\w]/.test(v);
 }
 
-export default function SignUp({ onDone }) {
+export default function SignUp({ onDone, onOpenLegal }) {
   const [form, setForm] = useState({ name: "", email: "", pass: "", terms: false });
   const [error, setError] = useState("");
   const score = scorePassword(form.pass);
@@ -40,7 +40,10 @@ export default function SignUp({ onDone }) {
           <label className="f">Password<input id="su-pass" type="password" autoComplete="new-password" placeholder="At least 8 characters" value={form.pass} onChange={set("pass")} /></label>
           <div className="meter" aria-hidden="true"><i style={{ width: `${score * 25}%`, background: meterColor }} /></div>
           <span className="hint">{HINTS[score]}</span>
-          <label className="check"><input type="checkbox" id="su-terms" checked={form.terms} onChange={set("terms")} /> I agree to the Terms and Privacy Policy</label>
+          <label className="check"><input type="checkbox" id="su-terms" checked={form.terms} onChange={set("terms")} /> I agree to the{" "}
+            <button type="button" className="link inline" onClick={() => onOpenLegal("terms")}>Terms</button>{" "}
+            and{" "}
+            <button type="button" className="link inline" onClick={() => onOpenLegal("privacy")}>Privacy Policy</button></label>
           <p className="err" role="alert">{error}</p>
           <button className="btn primary wide" type="submit">Create account</button>
           <button className="btn wide" type="button" onClick={() => onDone({ name: "" })}>Explore with sample data</button>

@@ -16,7 +16,7 @@ const FAQ = [
 // Set VITE_SUPPORT_EMAIL (see .env.example) to show a support address.
 const EMAIL = import.meta.env.VITE_SUPPORT_EMAIL;
 
-export default function Help() {
+export default function Help({ onOpenLegal }) {
   const [query, setQuery] = useState("");
   const [copied, setCopied] = useState("");
   const q = query.trim().toLowerCase();
@@ -62,6 +62,11 @@ export default function Help() {
           <p>Support contact isn't set up yet. Check the questions above.</p>
         )}
       </section>
+      <p className="note legallinks">
+        <button className="link inline" onClick={() => onOpenLegal("terms")}>Terms of Service</button>
+        {" · "}
+        <button className="link inline" onClick={() => onOpenLegal("privacy")}>Privacy Policy</button>
+      </p>
     </div>
   );
 }

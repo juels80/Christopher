@@ -26,6 +26,7 @@ src/
     SignUp.jsx            account form with validation and password meter
     Home.jsx              summary, alerts, charge list, canceled list, sorting
     Help.jsx              searchable FAQ and support contact
+    Legal.jsx, Terms.jsx, Privacy.jsx   terms and privacy policy pages
   components/
     ChargeRow.jsx         one charge, expandable with cancel steps
     ChargeForm.jsx        add / edit bottom sheet
@@ -45,5 +46,6 @@ src/
 - Data is saved in `localStorage` (keys `subguard.v1` and `subguard.user`). Signing out clears it. Malformed saved records are dropped on load. Sign up is a front-end prototype; connect a real auth service before launch.
 - Fonts are bundled with the app (`@fontsource`), so the page makes no third-party requests.
 - The Help page shows a support email only when `VITE_SUPPORT_EMAIL` is set. Copy `.env.example` to `.env` and fill it in.
-- The sign-up form links no Terms or Privacy Policy yet; add real documents before launch.
+- `Terms of Service` and `Privacy Policy` pages (`src/pages/Terms.jsx`, `Privacy.jsx`) are linked from sign-up and Help. They describe the app as it works today (everything stays on the device). **Have a lawyer review them before a commercial launch, and rewrite them if you add accounts, sync, analytics, payments or bank connections.**
+- Set `VITE_LEGAL_NAME`, `VITE_SUPPORT_EMAIL` and optionally `VITE_GOVERNING_LAW` in `.env` to put your name, contact and governing law into those pages. Anything left empty is omitted.
 - Theme colors live at the top of `styles.css`: cobalt `#1f55d1`, background `#f3f6ff`, text `#14203d`.

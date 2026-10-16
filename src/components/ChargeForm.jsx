@@ -18,13 +18,34 @@ export default function ChargeForm({ sub, onSave, onClose }) {
   const [f, setF] = useState(() => initial(sub));
   const [error, setError] = useState("");
   const nameRef = useRef(null);
+  const sheetRef = useRef(null);
+  const start = useRef(f);
+  const dirty = JSON.stringify(f) !== JSON.stringify(start.current);
   const set = (k) => (e) => setF({ ...f, [k]: e.target.type === "checkbox" ? e.target.checked : e.target.value });
 
   useEffect(() => {
+    const opener = document.activeElement;
     nameRef.current?.focus();
-    const onKey = (e) => e.key === "Escape" && onClose();
+    const onKey = (e) => {
+      if (e.key === "Escape") return onClose();
+      if (e.key !== "Tab" || !sheetRef.current) return;
+      // Keep Tab inside the dialog.
+      const items = [...sheetRef.current.querySelectorAll("input,select,button")].filter((x) => !x.disabled);
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
     document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      if (opener instanceof HTMLElement) opener.focus();
+    };
   }, [onClose]);
 
   const submit = (e) => {
@@ -32,7 +53,7 @@ export default function ChargeForm({ sub, onSave, onClose }) {
     const name = f.name.trim();
     const price = parseFloat(f.price);
     if (!name) return setError("Enter the service name.");
-    if (!(price >= 0)) return setError("Enter the price as a number, like 15.49.");
+    if (!(price > 0) || !Number.isFinite(price)) return setError("Enter the price as a number above 0, like 15.49.");
     if (!f.date) return setError("Pick the date of the next charge.");
     onSave({
       name,
@@ -46,9 +67,9 @@ export default function ChargeForm({ sub, onSave, onClose }) {
   };
 
   return (
-    <div className="scrim" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <form className="sheet" onSubmit={submit} noValidate>
-        <h2>{sub ? "Edit charge" : "Add a charge"}</h2>
+    <div className="scrim" onClick={(e) => e.target === e.currentTarget && !dirty && onClose()}>
+      <form className="sheet" ref={sheetRef} role="dialog" aria-modal="true" aria-labelledby="sheet-title" onSubmit={submit} noValidate>
+        <h2 id="sheet-title">{sub ? "Edit charge" : "Add a charge"}</h2>
         <div className="fields">
           <label className="f full">Service name<input ref={nameRef} id="f-name" maxLength={40} placeholder="e.g. Netflix" value={f.name} onChange={set("name")} /></label>
           <label className="f">Price ($)<input id="f-price" type="number" step="0.01" min="0" inputMode="decimal" placeholder="15.49" value={f.price} onChange={set("price")} /></label>

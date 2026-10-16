@@ -24,7 +24,7 @@ const WEEKLY = 0.25;
 export const monthlyCost = (s) => (s.cycle === WEEKLY ? (s.price * 52) / 12 : s.price / s.cycle);
 export const cycleLabel = (c) => ({ 1: "/mo", 12: "/yr", 3: "/3 mo", 0.25: "/wk" }[c] || "");
 
-const parseDate = (str) => new Date(str + "T00:00:00");
+export const parseDate = (str) => new Date(str + "T00:00:00");
 
 // The nth charge after `start`, always counted from the original date so a
 // 31st-of-the-month bill clamps to month end instead of drifting (Jan 31 -> Feb 28 -> Mar 31).
@@ -40,8 +40,8 @@ function nthCharge(start, cycle, n) {
   return d;
 }
 
-// A trial whose first-charge date hasn't passed yet.
-export const isActiveTrial = (s) => s.trial && parseDate(s.date) >= startOfToday();
+// A trial whose first-charge date hasn't passed yet (and that isn't canceled).
+export const isActiveTrial = (s) => !s.canceled && s.trial && parseDate(s.date) >= startOfToday();
 
 // First charge on or after today, plus its index in the series.
 function firstUpcoming(s) {
@@ -72,6 +72,23 @@ export function dueInNext30(subs) {
   return total;
 }
 
+// Totals shown on Home. Canceled charges are excluded; unconverted trials are
+// reported separately so they don't inflate the recurring figure.
+export function summarize(subs) {
+  const live = subs.filter((s) => !s.canceled);
+  const trials = live.filter(isActiveTrial);
+  const paying = live.filter((s) => !isActiveTrial(s));
+  const sum = (list) => list.reduce((a, s) => a + monthlyCost(s), 0);
+  return {
+    liveCount: live.length,
+    monthly: sum(paying),
+    trialCount: trials.length,
+    trialMonthly: sum(trials),
+    next30: dueInNext30(live),
+    savedMonthly: sum(subs.filter((s) => s.canceled)),
+  };
+}
+
 export const CATEGORIES = {
   Streaming: ["#ffe3ea", "#b0123a"],
   Software: ["#e7e1ff", "#4a2fc0"],
@@ -89,6 +106,41 @@ export const SAMPLE_SUBS = () => [
   { id: 4, name: "Peloton App", price: 12.99, cycle: 1, date: plusDays(2), cat: "Fitness", trial: true, cancel: "Settings › Subscriptions › Cancel before trial ends", sample: true },
   { id: 5, name: "Spotify Premium", price: 11.99, cycle: 1, date: plusDays(19), cat: "Music", trial: false, cancel: "spotify.com/account › Manage plan › Cancel Premium", sample: true },
 ];
+
+const CYCLES = [1, 3, 12, 0.25];
+const DATE_RE = /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/;
+// Also rejects impossible dates like 2026-02-31, which Date would silently roll over.
+const validDate = (s) => typeof s === "string" && DATE_RE.test(s) && iso(parseDate(s)) === s;
+
+// Drops malformed entries from saved data so a bad record can't break the page.
+// Returns null when the saved value isn't a list at all.
+export function sanitizeSubs(list) {
+  if (!Array.isArray(list)) return null;
+  return list
+    .filter(
+      (s) =>
+        s &&
+        typeof s.name === "string" &&
+        s.name.trim() &&
+        Number.isFinite(s.price) &&
+        s.price >= 0 &&
+        CYCLES.includes(s.cycle) &&
+        validDate(s.date) &&
+        Number.isFinite(s.id)
+    )
+    .map((s) => ({
+      id: s.id,
+      name: s.name.trim().slice(0, 40),
+      price: s.price,
+      cycle: s.cycle,
+      date: s.date,
+      cat: s.cat in CATEGORIES ? s.cat : "Other",
+      trial: Boolean(s.trial),
+      cancel: typeof s.cancel === "string" ? s.cancel : "",
+      ...(s.sample ? { sample: true } : {}),
+      ...(validDate(s.canceled) ? { canceled: s.canceled } : {}),
+    }));
+}
 
 // localStorage wrapper that never throws (private mode, blocked storage).
 export const store = {

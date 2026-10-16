@@ -3,13 +3,12 @@ import SignUp from "./pages/SignUp.jsx";
 import Home from "./pages/Home.jsx";
 import Help from "./pages/Help.jsx";
 import TabBar from "./components/TabBar.jsx";
-import { SAMPLE_SUBS, store } from "./lib/subscriptions.js";
+import { SAMPLE_SUBS, sanitizeSubs, store } from "./lib/subscriptions.js";
 
 export default function App() {
   const [user, setUser] = useState(() => store.get("subguard.user", null));
   const [subs, setSubs] = useState(() => {
-    const saved = store.get("subguard.v1", null);
-    return Array.isArray(saved) ? saved : SAMPLE_SUBS();
+    return sanitizeSubs(store.get("subguard.v1", null)) ?? SAMPLE_SUBS();
   });
   const [page, setPage] = useState(user ? "home" : "signup");
 
@@ -26,7 +25,10 @@ export default function App() {
     setPage("home");
   };
   const signOut = () => {
+    // Data lives only in this browser, so signing out clears it for the next person.
     store.remove("subguard.user");
+    store.remove("subguard.v1");
+    setSubs(SAMPLE_SUBS());
     setUser(null);
     setPage("signup");
   };

@@ -2,7 +2,9 @@ import { useCallback, useMemo, useState } from "react";
 import Shield from "../components/Shield.jsx";
 import ChargeRow from "../components/ChargeRow.jsx";
 import ChargeForm from "../components/ChargeForm.jsx";
-import { cycleLabel, daysUntil, dueInNext30, isActiveTrial, money, monthlyCost, nextChargeDate } from "../lib/subscriptions.js";
+import {
+  cycleLabel, daysUntil, iso, isActiveTrial, money, monthlyCost, nextChargeDate, parseDate, startOfToday, summarize,
+} from "../lib/subscriptions.js";
 
 function whenText(n) {
   return n === 0 ? "today" : n === 1 ? "tomorrow" : `in ${n} days`;
@@ -12,18 +14,25 @@ export default function Home({ user, subs, setSubs, onSignOut }) {
   const [sort, setSort] = useState("date");
   const [openId, setOpenId] = useState(null);
   const [confirmId, setConfirmId] = useState(null);
+  const [confirmOut, setConfirmOut] = useState(false);
   const [editing, setEditing] = useState(null); // null = closed, "new" or a sub
 
-  const rows = useMemo(() => {
-    const r = subs.map((s) => {
-      const date = nextChargeDate(s);
-      return { s, date, days: daysUntil(date) };
-    });
-    r.sort(sort === "date" ? (a, b) => a.date - b.date : (a, b) => monthlyCost(b.s) - monthlyCost(a.s));
-    return r;
+  const { rows, canceledRows } = useMemo(() => {
+    const live = subs
+      .filter((s) => !s.canceled)
+      .map((s) => {
+        const date = nextChargeDate(s);
+        return { s, date, days: daysUntil(date) };
+      });
+    live.sort(sort === "date" ? (a, b) => a.date - b.date : (a, b) => monthlyCost(b.s) - monthlyCost(a.s));
+    const gone = subs
+      .filter((s) => s.canceled)
+      .map((s) => ({ s, date: parseDate(s.canceled), days: 0 }))
+      .sort((a, b) => b.date - a.date);
+    return { rows: live, canceledRows: gone };
   }, [subs, sort]);
 
-  const monthly = subs.reduce((a, s) => a + monthlyCost(s), 0);
+  const totals = summarize(subs);
   const alerts = rows
     .filter(({ s, days }) => days >= 0 && (isActiveTrial(s) ? days <= 7 : days <= 3))
     .sort((a, b) => a.days - b.days);
@@ -37,11 +46,37 @@ export default function Home({ user, subs, setSubs, onSignOut }) {
     }
     setEditing(null);
   };
+  const cancel = (id) => {
+    setSubs(subs.map((s) => (s.id === id ? { ...s, canceled: iso(startOfToday()) } : s)));
+    setOpenId(null);
+  };
+  const restore = (id) => {
+    setSubs(
+      subs.map((s) => {
+        if (s.id !== id) return s;
+        const { canceled, ...rest } = s;
+        return rest;
+      })
+    );
+    setOpenId(null);
+  };
   const remove = (id) => {
     setSubs(subs.filter((s) => s.id !== id));
     setOpenId(null);
     setConfirmId(null);
   };
+
+  const rowProps = (s) => ({
+    open: openId === s.id,
+    confirming: confirmId === s.id,
+    onToggle: () => { setOpenId(openId === s.id ? null : s.id); setConfirmId(null); },
+    onEdit: () => setEditing(s),
+    onCancel: () => cancel(s.id),
+    onRestore: () => restore(s.id),
+    onAskRemove: () => setConfirmId(s.id),
+    onRemove: () => remove(s.id),
+    onKeep: () => setConfirmId(null),
+  });
 
   return (
     <>
@@ -50,19 +85,33 @@ export default function Home({ user, subs, setSubs, onSignOut }) {
           <h1><Shield />Subscription Guard</h1>
           <div className="who">
             <span>{user.name ? `Hi, ${user.name}` : "Guest"}</span>
-            <button className="link" onClick={onSignOut}>Sign out</button>
+            <button className="link" onClick={() => setConfirmOut(true)}>Sign out</button>
           </div>
+          {confirmOut && (
+            <div className="signout-confirm" role="alertdialog" aria-label="Confirm sign out">
+              <p>Signing out removes your saved charges from this device.</p>
+              <div className="actions">
+                <button className="btn danger" onClick={onSignOut}>Sign out and clear</button>
+                <button className="btn" onClick={() => setConfirmOut(false)}>Stay signed in</button>
+              </div>
+            </div>
+          )}
         </header>
 
         <section className="summary" aria-label="Spending summary">
           <div>
             <div className="label">Recurring spend per month</div>
-            <div className="big num">{money(monthly)}</div>
+            <div className="big num">{money(totals.monthly)}</div>
+            {totals.trialCount > 0 && (
+              <div className="trialnote">
+                + {money(totals.trialMonthly)}/mo if {totals.trialCount === 1 ? "your free trial converts" : `your ${totals.trialCount} free trials convert`}
+              </div>
+            )}
           </div>
           <div className="stats">
-            <div><span className="label">Per year</span><span className="num">{money(monthly * 12)}</span></div>
-            <div><span className="label">Next 30 days</span><span className="num">{money(dueInNext30(subs))}</span></div>
-            <div><span className="label">Active</span><span className="num">{subs.length}</span></div>
+            <div><span className="label">Per year</span><span className="num">{money(totals.monthly * 12)}</span></div>
+            <div><span className="label">Next 30 days</span><span className="num">{money(totals.next30)}</span></div>
+            <div><span className="label">Active</span><span className="num">{totals.liveCount}</span></div>
           </div>
         </section>
 
@@ -95,19 +144,7 @@ export default function Home({ user, subs, setSubs, onSignOut }) {
               <li className="empty">No charges yet. Tap <b>+ Add charge</b> to track your first subscription.</li>
             )}
             {rows.map(({ s, date, days }) => (
-              <ChargeRow
-                key={s.id}
-                sub={s}
-                date={date}
-                days={days}
-                open={openId === s.id}
-                confirming={confirmId === s.id}
-                onToggle={() => { setOpenId(openId === s.id ? null : s.id); setConfirmId(null); }}
-                onEdit={() => setEditing(s)}
-                onAskRemove={() => setConfirmId(s.id)}
-                onRemove={() => remove(s.id)}
-                onKeep={() => setConfirmId(null)}
-              />
+              <ChargeRow key={s.id} sub={s} date={date} days={days} {...rowProps(s)} />
             ))}
           </ul>
           <p className="note">
@@ -115,6 +152,20 @@ export default function Home({ user, subs, setSubs, onSignOut }) {
               ? "Sample charges shown. Remove them and add your own; your list stays in this browser."
               : "Your list is saved in this browser only."}
           </p>
+
+          {canceledRows.length > 0 && (
+            <div className="canceledwrap">
+              <div className="listhead">
+                <h2>Canceled ({canceledRows.length})</h2>
+                <span className="saving">Saving {money(totals.savedMonthly * 12)}/yr</span>
+              </div>
+              <ul className="list is-canceled">
+                {canceledRows.map(({ s, date }) => (
+                  <ChargeRow key={s.id} sub={s} date={date} days={0} canceled {...rowProps(s)} />
+                ))}
+              </ul>
+            </div>
+          )}
         </section>
       </div>
 

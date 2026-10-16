@@ -1,2 +1,2 @@
-# Christopher
+# Subscription guard
 Web Developer portfolio
